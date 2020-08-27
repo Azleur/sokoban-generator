@@ -1,5 +1,8 @@
 use std::char;
 
+const MIN_SIZE: usize = 2;
+const MAX_SIZE: usize = 3;
+
 #[derive(Clone)]
 #[derive(Copy)]
 #[derive(PartialEq)]
@@ -32,9 +35,6 @@ fn print_board(board: &Board) {
     }
 }
 
-const MIN_SIZE: usize = 3;
-const MAX_SIZE: usize = 3;
-
 fn make_empty_boards(size: usize) -> Vec<Board> {
     let mut output = Vec::new();
     let combinations = 1 << (size * size);
@@ -57,7 +57,7 @@ fn make_empty_boards(size: usize) -> Vec<Board> {
     return output;
 }
 
-fn add_box_goal(original: Board) -> Vec<Board> {
+fn add_box_goal(original: &Board) -> Vec<Board> {
     let mut output = Vec::new();
 
     let mut floor_indices: Vec<(usize, usize)> = Vec::new();
@@ -166,8 +166,40 @@ fn reflect_x(board: &Board) -> Board {
     return output;
 }
 
+/// Do the normal diagonal transpose as a copy.
+fn transpose(board: &Board) -> Board {
+    let size = board.len();
+    let mut output = Vec::new();
+        
+    for y in 0..size {
+        let mut row = Vec::new();
+        for x in 0..size {
+            row.push(board[x][y]);
+        }
+        output.push(row);
+    }
+
+    return output;
+}
+
+/// Do the other diagonal symmetry.
+fn other_transpose(board: &Board) -> Board {
+    let size = board.len();
+    let mut output = Vec::new();
+        
+    for y in 0..size {
+        let mut row = Vec::new();
+        for x in 0..size {
+            row.push(board[size - 1- x][size - 1 - y]);
+        }
+        output.push(row);
+    }
+
+    return output;
+}
+
 fn all_reflections(board: &Board) -> Vec<Board> {
-    return vec![board.clone(), reflect_y(board), reflect_x(board)];
+    return vec![board.clone(), reflect_y(board), reflect_x(board), transpose(board), other_transpose(board)];
 }
 
 fn remove_reflections(input: &Vec<Board>) -> Vec<Board> {
@@ -189,17 +221,21 @@ fn remove_reflections(input: &Vec<Board>) -> Vec<Board> {
     return output;
 }
 
+/// Remove duplicates (under rotation and reflection) from a list of boards.
 fn clean_list(input: &Vec<Board>) -> Vec<Board> {
     return remove_reflections(&remove_rotations(input));
 }
 
-fn paint_component(board: &mut Board, x: usize, y: usize, component: u32) {
+/// Given an initial Floor position in a board and a Zone tag, mark the connected component.
+fn paint_component(board: &mut Board, x: usize, y: usize, component: u32) -> usize {
     let size = board.len() as i32;
-    let cell = Cell::Zone(component);
+    let cell_type = Cell::Zone(component);
     let mut pending = vec![(x, y)];
+    let mut cell_count = 0;
 
     while let Some((i, j)) = pending.pop() {
-        board[j][i] = cell;
+        board[j][i] = cell_type;
+        cell_count += 1;
         let ii = i as i32;
         let jj = j as i32;
         let neighbors: Vec<(i32, i32)> = vec![(ii - 1, jj), (ii + 1, jj), (ii, jj - 1), (ii, jj + 1)];
@@ -214,19 +250,83 @@ fn paint_component(board: &mut Board, x: usize, y: usize, component: u32) {
         }
     }
 
+    return cell_count;
 }
 
-fn connected_components(board: &Board) -> Board {
+/// Change the Floor tiles in a board for Zone tiles, indicating connected components.
+fn connected_components(board: &mut Board) -> Vec<usize> {
     let size = board.len();
-    let mut output = board.clone();
     let mut component_count = 0;
+    let mut cell_counts = Vec::new();
         
     for y in 0..size {
         for x in 0..size {
-            if let Cell::Floor = output[y][x] {
-                paint_component(&mut output, x, y, component_count);
+            if let Cell::Floor = board[y][x] {
+                let cell_count = paint_component(board, x, y, component_count);
                 component_count += 1;
+                cell_counts.push(cell_count);
             }
+        }
+    }
+
+    return cell_counts;
+}
+
+/// Returns a copy of the input board, with only one connected component preserved (prefers biggest).
+fn remove_components(board: &Board) -> Board {
+    let mut output = board.clone();
+    let size = board.len();
+
+    let cell_counts = connected_components(&mut output);
+    if cell_counts.is_empty() {
+        return output;
+    }
+
+    let mut max_count: usize = 0;
+    let mut max_idx: usize = 0;
+    for (idx, count) in cell_counts.iter().enumerate() {
+        if *count > max_count {
+            max_idx = idx;
+            max_count = *count;
+        }
+    }
+
+    for y in 0..size {
+        for x in 0..size {
+            if let Cell::Zone(idx) = output[y][x] {
+                if idx == max_idx as u32 {
+                    output[y][x] = Cell::Floor;
+                } else {
+                    output[y][x] = Cell::Wall;
+                }
+            }
+        }
+    }
+
+    return output;
+}
+
+fn count_cells(board: &Board, cell: Cell) -> usize {
+    let size = board.len();
+    let mut count = 0;
+
+    for y in 0..size {
+        for x in 0..size {
+            if board[y][x] == cell {
+                count += 1;
+            }
+        }
+    }
+
+    return count;
+}
+
+fn remove_small(list: &Vec<Board>) -> Vec<Board> {
+    let mut output = Vec::new();
+
+    for board in list {
+        if count_cells(board, Cell::Floor) > 2 {
+            output.push(board.clone());
         }
     }
 
@@ -236,26 +336,24 @@ fn connected_components(board: &Board) -> Board {
 fn main() {
 
     for size in MIN_SIZE..=MAX_SIZE {
-        let all_empty_boards = make_empty_boards(size);
-        let trimmed_empty_boards = clean_list(&all_empty_boards);
-        let tagged_boards: Vec<Board> = trimmed_empty_boards.iter().map(connected_components).collect();
-
-        for (empty_board, tagged_board) in trimmed_empty_boards.iter().zip(tagged_boards) {
+        let raw_empty_boards = make_empty_boards(size);
+        let connected_empty_boards = raw_empty_boards.iter().map(remove_components).collect();
+        let trimmed_empty_boards = remove_small(&clean_list(&connected_empty_boards));
+ 
+        for empty_board in trimmed_empty_boards {
         // for empty_board in trimmed_empty_boards {
             println!("================================");
 
             println!("-------- EMPTY BOARD --------");
             print_board(&empty_board);
 
-            println!("-------- TAGGED BOARD --------");
-            print_board(&tagged_board);
-
-            // println!("-------- FILLED BOARDS --------");
-            // let filled_boards = add_box_goal(empty_board);
-            // for board in filled_boards {
-            //     println!("--------");
-            //     print_board(&board);
-            // }
+            println!("-------- FILLED BOARDS --------");
+            let raw_filled_boards = add_box_goal(&empty_board);
+            let filled_boards = clean_list(&raw_filled_boards);
+            for filled_board in filled_boards {
+                println!("--------");
+                print_board(&filled_board);
+            }
         }
     }
 }
