@@ -1,11 +1,9 @@
 use std::char;
 
-const MIN_SIZE: usize = 2;
-const MAX_SIZE: usize = 3;
+const MIN_SIZE: usize = 5;
+const MAX_SIZE: usize = 5;
 
-#[derive(Clone)]
-#[derive(Copy)]
-#[derive(PartialEq)]
+#[derive(Clone, Copy, PartialEq)]
 enum Cell {
     Floor,
     Wall,
@@ -35,26 +33,93 @@ fn print_board(board: &Board) {
     }
 }
 
-fn make_empty_boards(size: usize) -> Vec<Board> {
-    let mut output = Vec::new();
-    let combinations = 1 << (size * size);
+/// Makes all  unique empty boards of the given size.
+struct BoardMaker {
+    /// Next value used to determine the pattern of floor and wall tiles. Range [0, self.combinations).
+    seed: usize,
+    /// Number of rows (or columns) in each board.
+    size: usize,
+    /// Total number of floor & wall combinations possible in this board size (2 ^ (size * size)).
+    combinations: usize,
+    /// Used to remove duplicates under symmetry.
+    filter: BoardFilter,
+}
 
-    for seed in 0..combinations {
-        let mut board = Vec::new();
-        
-        for y in 0..size {
-            let mut row = Vec::new();
-            for x in 0..size {
-                let index = y * size + x;
-                let mask = (seed >> index) & 1;
-                let cell = if mask == 1 { Cell::Floor } else { Cell::Wall };
-                row.push(cell);
-            }
-            board.push(row);
-        }
-        output.push(board);
+impl BoardMaker {
+    fn new(size: usize) -> BoardMaker {
+        return BoardMaker {
+            seed: 0,
+            size: size,
+            combinations: 1 << (size * size),
+            filter: BoardFilter::new(),
+        };
     }
-    return output;
+}
+
+impl Iterator for BoardMaker {
+    type Item = Board;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        while self.seed < self.combinations {
+            let mut board = make_empty_board(self);
+            remove_components(&mut board);
+            self.seed += 1;
+
+            if count_cells(&board, Cell::Floor) > 2 && self.filter.accept(&board) {
+                return Some(board);
+            }
+        }
+
+        return None;
+    }
+}
+
+/// Accumulating filter. Discards boards if they correspond to a symmetry of a previously accepted board.
+struct BoardFilter {
+    /// All boards that have been accepted by the filter.
+    boards: Vec<Board>,
+    /// D4 symmetries of the boards accepted by the filter. symmetries[i] corresponds to boards[i], etc.
+    symmetries: Vec<Vec<Board>>,
+}
+
+impl BoardFilter {
+    fn new() -> BoardFilter {
+        return BoardFilter {
+            boards: Vec::new(),
+            symmetries: Vec::new(),
+        };
+    }
+
+    /// If board or one of its D4 symmetries has been seen before, return false. Otherwise, return true and update the registry.
+    fn accept(&mut self, board: &Board) -> bool {
+        for set in &self.symmetries {
+            for test in set {
+                if test == board {
+                    return false;
+                }
+            }
+        }
+        self.boards.push(board.clone());
+        self.symmetries.push(all_symmetries(&board));
+        return true;
+    }
+}
+
+fn make_empty_board(maker: &BoardMaker) -> Board {
+    let mut board = Vec::new();
+
+    for y in 0..maker.size {
+        let mut row = Vec::new();
+        for x in 0..maker.size {
+            let index = y * maker.size + x;
+            let mask = (maker.seed >> index) & 1;
+            let cell = if mask == 1 { Cell::Floor } else { Cell::Wall };
+            row.push(cell);
+        }
+        board.push(row);
+    }
+
+    return board;
 }
 
 fn add_box_goal(original: &Board) -> Vec<Board> {
@@ -93,10 +158,10 @@ fn add_box_goal(original: &Board) -> Vec<Board> {
     return output;
 }
 
-fn rotate_board(board: &Board) -> Board {
+/// Counter-clockwise 90° rotation.
+fn rotate(board: &Board) -> Board {
     let size = board.len();
     let mut output = Vec::new();
-        
     for y in 0..size {
         let mut row = Vec::new();
         for x in 0..size {
@@ -108,53 +173,10 @@ fn rotate_board(board: &Board) -> Board {
     return output;
 }
 
-fn all_rotations(board: &Board) -> Vec<Board> {
-    let rot0 = board.clone();
-    let rot90  = rotate_board(&rot0);
-    let rot180 = rotate_board(&rot90);
-    let rot270 = rotate_board(&rot180);
-
-    return vec![rot0, rot90, rot180, rot270];
-}
-
-fn remove_rotations(input: &Vec<Board>) -> Vec<Board> {
-    let mut output   : Vec<Board>      = Vec::new();
-    let mut rotations: Vec<Vec<Board>> = Vec::new();
-
-    'candidates: for candidate in input {
-        for set in &rotations {
-            for test in set {
-                if candidate == test {
-                    continue 'candidates;
-                }
-            }
-        }
-        output.push(candidate.clone());
-        rotations.push(all_rotations(candidate));
-    }
-
-    return output;
-}
-
-fn reflect_y(board: &Board) -> Board {
-    let size = board.len();
-    let mut output = Vec::new();
-        
-    for y in 0..size {
-        let mut row = Vec::new();
-        for x in 0..size {
-            row.push(board[size - 1 - y][x]);
-        }
-        output.push(row);
-    }
-
-    return output;
-}
-
+/// Reflect over the vertical axis x = size / 2.
 fn reflect_x(board: &Board) -> Board {
     let size = board.len();
     let mut output = Vec::new();
-        
     for y in 0..size {
         let mut row = Vec::new();
         for x in 0..size {
@@ -166,64 +188,18 @@ fn reflect_x(board: &Board) -> Board {
     return output;
 }
 
-/// Do the normal diagonal transpose as a copy.
-fn transpose(board: &Board) -> Board {
-    let size = board.len();
-    let mut output = Vec::new();
-        
-    for y in 0..size {
-        let mut row = Vec::new();
-        for x in 0..size {
-            row.push(board[x][y]);
-        }
-        output.push(row);
-    }
+/// Calculate all D4 (dihedral 4) symmetries of a board.
+fn all_symmetries(board: &Board) -> Vec<Board> {
+    let e = board.clone();
+    let a = rotate(board);
+    let a2 = rotate(&a);
+    let a3 = rotate(&a2);
+    let b = reflect_x(board);
+    let ab = rotate(&b);
+    let a2b = rotate(&ab);
+    let a3b = rotate(&a2b);
 
-    return output;
-}
-
-/// Do the other diagonal symmetry.
-fn other_transpose(board: &Board) -> Board {
-    let size = board.len();
-    let mut output = Vec::new();
-        
-    for y in 0..size {
-        let mut row = Vec::new();
-        for x in 0..size {
-            row.push(board[size - 1- x][size - 1 - y]);
-        }
-        output.push(row);
-    }
-
-    return output;
-}
-
-fn all_reflections(board: &Board) -> Vec<Board> {
-    return vec![board.clone(), reflect_y(board), reflect_x(board), transpose(board), other_transpose(board)];
-}
-
-fn remove_reflections(input: &Vec<Board>) -> Vec<Board> {
-    let mut output     : Vec<Board>      = Vec::new();
-    let mut reflections: Vec<Vec<Board>> = Vec::new();
-
-    'candidates: for candidate in input {
-        for set in &reflections {
-            for test in set {
-                if candidate == test {
-                    continue 'candidates;
-                }
-            }
-        }
-        output.push(candidate.clone());
-        reflections.push(all_reflections(candidate));
-    }
-
-    return output;
-}
-
-/// Remove duplicates (under rotation and reflection) from a list of boards.
-fn clean_list(input: &Vec<Board>) -> Vec<Board> {
-    return remove_reflections(&remove_rotations(input));
+    return vec![e, a, a2, a3, b, ab, a2b, a3b];
 }
 
 /// Given an initial Floor position in a board and a Zone tag, mark the connected component.
@@ -238,7 +214,8 @@ fn paint_component(board: &mut Board, x: usize, y: usize, component: u32) -> usi
         cell_count += 1;
         let ii = i as i32;
         let jj = j as i32;
-        let neighbors: Vec<(i32, i32)> = vec![(ii - 1, jj), (ii + 1, jj), (ii, jj - 1), (ii, jj + 1)];
+        let neighbors: Vec<(i32, i32)> =
+            vec![(ii - 1, jj), (ii + 1, jj), (ii, jj - 1), (ii, jj + 1)];
         for (kk, ll) in neighbors {
             if kk >= 0 && ll >= 0 && kk < size && ll < size {
                 let k = kk as usize;
@@ -258,7 +235,6 @@ fn connected_components(board: &mut Board) -> Vec<usize> {
     let size = board.len();
     let mut component_count = 0;
     let mut cell_counts = Vec::new();
-        
     for y in 0..size {
         for x in 0..size {
             if let Cell::Floor = board[y][x] {
@@ -272,14 +248,13 @@ fn connected_components(board: &mut Board) -> Vec<usize> {
     return cell_counts;
 }
 
-/// Returns a copy of the input board, with only one connected component preserved (prefers biggest).
-fn remove_components(board: &Board) -> Board {
-    let mut output = board.clone();
+/// Remove all connected components except biggest.
+fn remove_components(board: &mut Board) {
     let size = board.len();
 
-    let cell_counts = connected_components(&mut output);
+    let cell_counts = connected_components(board);
     if cell_counts.is_empty() {
-        return output;
+        return;
     }
 
     let mut max_count: usize = 0;
@@ -293,17 +268,15 @@ fn remove_components(board: &Board) -> Board {
 
     for y in 0..size {
         for x in 0..size {
-            if let Cell::Zone(idx) = output[y][x] {
+            if let Cell::Zone(idx) = board[y][x] {
                 if idx == max_idx as u32 {
-                    output[y][x] = Cell::Floor;
+                    board[y][x] = Cell::Floor;
                 } else {
-                    output[y][x] = Cell::Wall;
+                    board[y][x] = Cell::Wall;
                 }
             }
         }
     }
-
-    return output;
 }
 
 fn count_cells(board: &Board, cell: Cell) -> usize {
@@ -321,35 +294,25 @@ fn count_cells(board: &Board, cell: Cell) -> usize {
     return count;
 }
 
-fn remove_small(list: &Vec<Board>) -> Vec<Board> {
-    let mut output = Vec::new();
-
-    for board in list {
-        if count_cells(board, Cell::Floor) > 2 {
-            output.push(board.clone());
-        }
-    }
-
-    return output;
-}
-
 fn main() {
-
     for size in MIN_SIZE..=MAX_SIZE {
-        let raw_empty_boards = make_empty_boards(size);
-        let connected_empty_boards = raw_empty_boards.iter().map(remove_components).collect();
-        let trimmed_empty_boards = remove_small(&clean_list(&connected_empty_boards));
- 
-        for empty_board in trimmed_empty_boards {
-        // for empty_board in trimmed_empty_boards {
+        println!("================================================================");
+        println!(
+            "=========================== SIZE {} ============================",
+            size
+        );
+        println!("================================================================");
+
+        for empty_board in BoardMaker::new(size) {
             println!("================================");
 
             println!("-------- EMPTY BOARD --------");
             print_board(&empty_board);
 
             println!("-------- FILLED BOARDS --------");
-            let raw_filled_boards = add_box_goal(&empty_board);
-            let filled_boards = clean_list(&raw_filled_boards);
+            let mut filter = BoardFilter::new();
+            let mut filled_boards = add_box_goal(&empty_board);
+            filled_boards.retain(|board| filter.accept(board));
             for filled_board in filled_boards {
                 println!("--------");
                 print_board(&filled_board);
