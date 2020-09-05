@@ -52,11 +52,10 @@ impl Iterator for Maker {
 
     fn next(&mut self) -> Option<Self::Item> {
         while self.seed < self.combinations {
-            let mut board = self.make_board();
-            fill::remove_components(&mut board);
+            let board = self.make_board();
             self.seed += 1;
 
-            if valid_stats(&board) && self.filter.accept(&board) {
+            if valid_board(&board) && self.filter.accept(&board) {
                 return Some(board);
             }
         }
@@ -65,16 +64,20 @@ impl Iterator for Maker {
     }
 }
 
-/// Calculates Floor and Wall stats for the given board and ensures they're within the desired ranges.
-fn valid_stats(board: &Board) -> bool {
+/// Calculates various stats for the given board and ensures they're within the desired ranges.
+fn valid_board(board: &Board) -> bool {
     let size = board.len();
 
     if size < 2 { return false; }
+
+    if count_connected_components(board) != 1 {
+        return false;
+    }
     
     let floor_stats = stats::cell_stats(board, Cell::Floor);
     let wall_stats = stats::cell_stats(board, Cell::Wall);
 
-    if floor_stats.count < 3 || wall_stats.count < 1 {
+    if floor_stats.count < 2 || wall_stats.count < 1 {
         return false;
     }
 
@@ -94,4 +97,11 @@ fn check_limits(stats: stats::CellStats, min: usize, max: usize) -> bool {
     }
 
     return false;
+}
+
+/// Returns the number of connected components.
+fn count_connected_components(board: &Board) -> usize {
+    let mut dummy = board.clone();
+    let counts = fill::mark_components(&mut dummy);
+    return counts.len();
 }

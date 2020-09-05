@@ -31,7 +31,17 @@ fn paint_component(board: &mut Board, x: usize, y: usize, component: u32) -> usi
 }
 
 /// Change the Floor tiles in a board for Zone tiles, indicating connected components.
-fn connected_components(board: &mut Board) -> Vec<usize> {
+/// 
+/// # Arguments
+/// 
+/// `board` - Board to *modify*.
+/// 
+/// # Return value
+/// 
+/// Vector of cell counts. 
+/// Entry `i` corresponds to the number of tiles in connected component `i`. 
+/// Corresponds to tiles of type `Cell::Zone(i)`.
+pub fn mark_components(board: &mut Board) -> Vec<usize> {
     let size = board.len();
     let mut component_count = 0;
     let mut cell_counts = Vec::new();
@@ -52,7 +62,7 @@ fn connected_components(board: &mut Board) -> Vec<usize> {
 pub fn remove_components(board: &mut Board) {
     let size = board.len();
 
-    let cell_counts = connected_components(board);
+    let cell_counts = mark_components(board);
     if cell_counts.is_empty() {
         return;
     }
