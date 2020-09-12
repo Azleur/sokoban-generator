@@ -17,8 +17,6 @@ pub struct SerialMaker {
     size: u8,
     /// Total number of floor & wall combinations possible in this board size (2 ^ (size * size)).
     combinations: u128,
-    /// Used to remove duplicates under symmetry.
-    filter: filter::Symmetries,
 }
 
 impl SerialMaker {
@@ -28,7 +26,6 @@ impl SerialMaker {
             seed: 0,
             size: size,
             combinations: 1 << (size * size),
-            filter: filter::Symmetries::new(),
         };
     }
 }
@@ -41,7 +38,7 @@ impl Iterator for SerialMaker {
             let board = make_board(self.size, self.seed);
             self.seed += 1;
 
-            if valid_board(&board) && self.filter.accept(&board) {
+            if valid_board(&board) {
                 return Some(board);
             }
         }
@@ -113,9 +110,6 @@ pub struct RngMaker {
     size: u8,
     /// This is the magic sauce.
     rng: rand::rngs::ThreadRng,
-    /// Used to remove duplicates under symmetry.
-    /// DUPLICATE IN SerialMaker.
-    filter: filter::Symmetries,
     /// Safety measure to avoid infinite looping.
     /// Looks like we're skipping one combination?
     count: u128,
@@ -129,7 +123,6 @@ impl RngMaker {
         return RngMaker {
             size: size,
             rng: rand::thread_rng(),
-            filter: filter::Symmetries::new(),
             count: 0,
             combinations: 1 << (size * size),
         }
@@ -147,7 +140,7 @@ impl Iterator for RngMaker {
             // println!("seed: {} / {}", seed, self.combinations);
             let board = make_board(self.size, seed);
 
-            if valid_board(&board) && self.filter.accept(&board) {
+            if valid_board(&board) {
                 return Some(board);
             }
         }
