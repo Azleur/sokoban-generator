@@ -19,6 +19,27 @@ fn cell_symbol(cell: &Cell) -> char {
     }
 }
 
+pub fn is_floor(cell: Cell) -> bool {
+    return match cell {
+        Cell::Floor => true,
+        _ => false,
+    };
+}
+
+pub fn is_wall(cell: Cell) -> bool {
+    return match cell {
+        Cell::Wall => true,
+        _ => false,
+    };
+}
+
+pub fn is_goal(cell: Cell) -> bool {
+    return match cell {
+        Cell::Goal => true,
+        _ => false,
+    };
+}
+
 pub type Board = Vec<Vec<Cell>>;
 
 pub fn print_board(board: &Board) {

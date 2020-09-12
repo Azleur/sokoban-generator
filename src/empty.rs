@@ -1,7 +1,5 @@
 //! This module is dedicated to the creation of valid empty boards. See empty::Maker.
 
-use std::cmp;
-
 use crate::base::{Board, Cell};
 use crate::filter;
 use crate::tools::{fill, stats};

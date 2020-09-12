@@ -7,6 +7,7 @@ mod filter;
 mod empty;
 mod tools;
 mod filled;
+mod play;
 
 fn main() {
 
@@ -29,14 +30,14 @@ fn main() {
             println!("-------- EMPTY BOARD --------");
             print_board(&empty_board);
 
-            // println!("-------- FILLED BOARDS --------");
-            // let mut filter = filter::Symmetries::new();
-            // let mut filled_boards = filled::add_box_goal(&empty_board);
-            // filled_boards.retain(|board| filter.accept(board));
-            // for filled_board in filled_boards {
-            //     println!("--------");
-            //     print_board(&filled_board);
-            // }
+            println!("-------- FILLED BOARDS --------");
+            let mut filter = filter::Symmetries::new();
+            let mut filled_boards = filled::add_box_goal(&empty_board);
+            filled_boards.retain(|board| filter.accept(board));
+            for filled_board in filled_boards {
+                println!("--------");
+                print_board(&filled_board);
+            }
         }
     }
 }
