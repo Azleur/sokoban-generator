@@ -6,11 +6,23 @@ use rand::Rng;
 // use rand::SeedableRng;
 
 use crate::base::{Board, Cell};
-use crate::filter;
+use crate::iters::filter;
 use crate::tools::{fill, stats};
 
+pub fn serial(size: u8) -> Box<dyn Iterator<Item = Board>> {
+    let serial_maker = SerialMaker::new(size);
+    let filter = filter::Symmetries::new(Box::new(serial_maker));
+    return Box::new(filter);
+}
+
+pub fn random(size: u8) -> Box<dyn Iterator<Item = Board>> {
+    let random_maker = RngMaker::new(size);
+    let filter = filter::Symmetries::new(Box::new(random_maker));
+    return Box::new(filter);
+}
+
 /// Makes all  unique empty boards of the given size.
-pub struct SerialMaker {
+struct SerialMaker {
     /// Next value used to determine the pattern of floor and wall tiles. Range [0, self.combinations).
     seed: u128,
     /// Number of rows (or columns) in each board.
@@ -21,7 +33,7 @@ pub struct SerialMaker {
 
 impl SerialMaker {
     /// Returns a new Maker for the given board size.
-    pub fn new(size: u8) -> SerialMaker {
+    fn new(size: u8) -> SerialMaker {
         return SerialMaker {
             seed: 0,
             size: size,
@@ -105,7 +117,7 @@ fn make_board(size: u8, seed: u128) -> Board {
     return board;
 }
 
-pub struct RngMaker {
+struct RngMaker {
     // Number of rows (or columns) in each board.
     size: u8,
     /// This is the magic sauce.
@@ -119,7 +131,7 @@ pub struct RngMaker {
 }
 
 impl RngMaker {
-    pub fn new(size: u8) -> RngMaker {
+    fn new(size: u8) -> RngMaker {
         return RngMaker {
             size: size,
             rng: rand::thread_rng(),

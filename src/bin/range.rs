@@ -1,7 +1,7 @@
 use std::{env, process, time};
 
 use sokoban_generator::base::{Board, print_board};
-use sokoban_generator::empty::{SerialMaker, RngMaker};
+use sokoban_generator::iters::empty::{serial, random};
 
 fn main() {
 
@@ -24,7 +24,7 @@ fn main() {
         println!("=========================== SIZE {} ============================", size);
         println!("================================================================");
 
-        let iterator: Box<dyn Iterator<Item = Board>> = if method == "serial" { Box::new(SerialMaker::new(size)) } else { Box::new(RngMaker::new(size)) };
+        let iterator: Box<dyn Iterator<Item = Board>> = if method == "serial" { Box::new(serial(size)) } else { Box::new(random(size)) };
         for (idx, empty_board) in iterator.enumerate() {
             println!("================ [{} ({:?})] ================", idx, timer.elapsed());
 
