@@ -2,10 +2,11 @@ use crate::base::{Board, Cell};
 
 pub fn add_box_goal(original: &Board) -> Vec<Board> {
     let mut output = Vec::new();
+    let size = original.len();
 
     let mut floor_indices: Vec<(usize, usize)> = Vec::new();
-    for j in 0..original.len() {
-        for i in 0..original[j].len() {
+    for j in 0..size {
+        for i in 0..size {
             if let Cell::Floor = original[j][i] {
                 floor_indices.push((i, j));
             }

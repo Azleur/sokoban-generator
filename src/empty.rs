@@ -1,56 +1,44 @@
 //! This module is dedicated to the creation of valid empty boards. See empty::Maker.
 
+use std::u128;
+use rand;
+use rand::Rng;
+// use rand::SeedableRng;
+
 use crate::base::{Board, Cell};
 use crate::filter;
 use crate::tools::{fill, stats};
 
 /// Makes all  unique empty boards of the given size.
-pub struct Maker {
+pub struct SerialMaker {
     /// Next value used to determine the pattern of floor and wall tiles. Range [0, self.combinations).
-    seed: usize,
+    seed: u128,
     /// Number of rows (or columns) in each board.
-    size: usize,
+    size: u8,
     /// Total number of floor & wall combinations possible in this board size (2 ^ (size * size)).
-    combinations: usize,
+    combinations: u128,
     /// Used to remove duplicates under symmetry.
     filter: filter::Symmetries,
 }
 
-impl Maker {
+impl SerialMaker {
     /// Returns a new Maker for the given board size.
-    pub fn new(size: usize) -> Maker {
-        return Maker {
+    pub fn new(size: u8) -> SerialMaker {
+        return SerialMaker {
             seed: 0,
             size: size,
             combinations: 1 << (size * size),
             filter: filter::Symmetries::new(),
         };
     }
-
-    /// Converts a seed into a combination of floor and wall cells; full set of seeds covers all possible combinations.
-    fn make_board(&self) -> Board {
-        let mut board = Vec::new();
-        for y in 0..self.size {
-            let mut row = Vec::new();
-            for x in 0..self.size {
-                let index = y * self.size + x;
-                let mask = (self.seed >> index) & 1;
-                let cell = if mask == 1 { Cell::Floor } else { Cell::Wall };
-                row.push(cell);
-            }
-            board.push(row);
-        }
-
-        return board;
-    }
 }
 
-impl Iterator for Maker {
+impl Iterator for SerialMaker {
     type Item = Board;
 
     fn next(&mut self) -> Option<Self::Item> {
         while self.seed < self.combinations {
-            let board = self.make_board();
+            let board = make_board(self.size, self.seed);
             self.seed += 1;
 
             if valid_board(&board) && self.filter.accept(&board) {
@@ -102,4 +90,68 @@ fn count_connected_components(board: &Board) -> usize {
     let mut dummy = board.clone();
     let counts = fill::mark_components(&mut dummy);
     return counts.len();
+}
+
+fn make_board(size: u8, seed: u128) -> Board {
+    let mut board = Vec::new();
+    for y in 0..size {
+        let mut row = Vec::new();
+        for x in 0..size {
+            let index = y * size + x;
+            let mask = (seed >> index) & 1;
+            let cell = if mask == 1 { Cell::Floor } else { Cell::Wall };
+            row.push(cell);
+        }
+        board.push(row);
+    }
+
+    return board;
+}
+
+pub struct RngMaker {
+    // Number of rows (or columns) in each board.
+    size: u8,
+    /// This is the magic sauce.
+    rng: rand::rngs::ThreadRng,
+    /// Used to remove duplicates under symmetry.
+    /// DUPLICATE IN SerialMaker.
+    filter: filter::Symmetries,
+    /// Safety measure to avoid infinite looping.
+    /// Looks like we're skipping one combination?
+    count: u128,
+    /// Total number of floor & wall combinations possible in this board size (2 ^ (size * size)).
+    /// DUPLICATE IN SerialMaker.
+    combinations: u128,
+}
+
+impl RngMaker {
+    pub fn new(size: u8) -> RngMaker {
+        return RngMaker {
+            size: size,
+            rng: rand::thread_rng(),
+            filter: filter::Symmetries::new(),
+            count: 0,
+            combinations: 1 << (size * size),
+        }
+    }
+}
+
+impl Iterator for RngMaker {
+    type Item = Board;
+
+    // TODO: LOTS OF OVERLAP WITH SerialMaker.
+    fn next(&mut self) -> Option<Self::Item> {
+        while self.count < u128::MAX { // DANGEROUS
+            self.count += 1;
+            let seed: u128 = self.rng.gen::<u128>() % self.combinations;
+            // println!("seed: {} / {}", seed, self.combinations);
+            let board = make_board(self.size, seed);
+
+            if valid_board(&board) && self.filter.accept(&board) {
+                return Some(board);
+            }
+        }
+
+        return None;
+    }
 }

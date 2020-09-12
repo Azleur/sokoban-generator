@@ -14,4 +14,4 @@ target/
 
 # PROJECT SPECIFIC
 
-dump.txt
+dump*.txt
