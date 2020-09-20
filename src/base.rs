@@ -47,8 +47,21 @@ pub fn print_board(board: &Board) {
         for cell in row {
             print!("{} ", cell_symbol(cell));
         }
-        print!("\n");
+        print!("\r\n");
     }
+}
+
+pub fn find_cell(board: &Board, cell: Cell) -> Option<(u8, u8)> {
+    let size = board.len();
+    for y in 0..size {
+        for x in 0..size {
+            if cell == board[y][x] {
+                return Some((x as u8, y as u8));
+            }
+        }
+    }
+
+    return None;
 }
 
 // pub trait Iter = Iterator<Item = Board>;
