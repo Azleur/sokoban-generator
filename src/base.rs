@@ -50,3 +50,5 @@ pub fn print_board(board: &Board) {
         print!("\n");
     }
 }
+
+// pub trait Iter = Iterator<Item = Board>;

@@ -6,23 +6,31 @@ use rand::Rng;
 // use rand::SeedableRng;
 
 use crate::base::{Board, Cell};
-use crate::iters::filter;
+use crate::iters::filter::Symmetries;
 use crate::tools::{fill, stats};
 
-pub fn serial(size: u8) -> Box<dyn Iterator<Item = Board>> {
+/// Provides an exhaustive empty board maker.
+/// 
+/// Guaranteed to find all valid combinations and finish immediately.
+/// Slower to find single examples than random(); deterministic and predictable order.
+pub fn serial(size: u8) -> Symmetries<SerialMaker> {
     let serial_maker = SerialMaker::new(size);
-    let filter = filter::Symmetries::new(Box::new(serial_maker));
-    return Box::new(filter);
+    let filter = Symmetries::new(serial_maker);
+    return filter;
 }
 
-pub fn random(size: u8) -> Box<dyn Iterator<Item = Board>> {
+/// Provides a RNG-based empty board maker.
+/// 
+/// Generally faster at finding single examples than serial().
+/// Slower to find the whole set and no confirmation when whole set found.
+pub fn random(size: u8) -> Symmetries<RngMaker> {
     let random_maker = RngMaker::new(size);
-    let filter = filter::Symmetries::new(Box::new(random_maker));
-    return Box::new(filter);
+    let filter = Symmetries::new(random_maker);
+    return filter;
 }
 
 /// Makes all  unique empty boards of the given size.
-struct SerialMaker {
+pub struct SerialMaker {
     /// Next value used to determine the pattern of floor and wall tiles. Range [0, self.combinations).
     seed: u128,
     /// Number of rows (or columns) in each board.
@@ -117,7 +125,7 @@ fn make_board(size: u8, seed: u128) -> Board {
     return board;
 }
 
-struct RngMaker {
+pub struct RngMaker {
     // Number of rows (or columns) in each board.
     size: u8,
     /// This is the magic sauce.
