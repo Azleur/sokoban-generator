@@ -1,4 +1,4 @@
-use crate::base::Board;
+use crate::base::{Board, BaseIter, SecondaryIter, WrapperIter};
 use crate::tools::symmetry;
 
 /// Accumulating filter. Discards boards if they correspond to a symmetry of a previously accepted board.
@@ -11,8 +11,30 @@ pub struct Symmetries<T: Iterator<Item = Board>> {
     symmetries: Vec<Vec<Board>>,
 }
 
-impl<T: Iterator<Item = Board>> Symmetries<T> {
-    pub fn new(source: T) -> Symmetries<T> {
+impl<T: Iterator<Item = Board>> WrapperIter<T> for Symmetries<T> {
+    fn new_wrapper(source: T) -> Symmetries<T> {
+        return Symmetries {
+            source: source,
+            boards: Vec::new(),
+            symmetries: Vec::new(),
+        };
+    }
+}
+
+impl<T: BaseIter> BaseIter for Symmetries<T> {
+    fn new_base(size: u8) -> Symmetries<T> {
+        let source = T::new_base(size);
+        return Symmetries {
+            source: source,
+            boards: Vec::new(),
+            symmetries: Vec::new(),
+        };
+    }
+}
+
+impl<T: SecondaryIter> SecondaryIter for Symmetries<T> {
+    fn new_secondary(board: Board) -> Symmetries<T> {
+        let source = T::new_secondary(board);
         return Symmetries {
             source: source,
             boards: Vec::new(),

@@ -63,3 +63,14 @@ pub fn find_cell(board: &Board, cell: Cell) -> Option<(u8, u8)> {
 
     return None;
 }
+
+// pub trait Iter = Iterator<Item = Board>;
+pub trait BaseIter: Iterator<Item = Board> {
+    fn new_base(size: u8) -> Self;
+}
+pub trait SecondaryIter: Iterator<Item = Board> {
+    fn new_secondary(board: Board) -> Self;
+}
+pub trait WrapperIter<T: Iterator<Item = Board>>: Iterator<Item = Board> {
+    fn new_wrapper(source: T) -> Self;
+}

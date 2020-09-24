@@ -1,6 +1,6 @@
 use std::{process, env};
 
-use sokoban_generator::iters::{empty, filled};
+use sokoban_generator::iters::holistic;
 use sokoban_generator::colorprint::color_print_board;
 use sokoban_generator::play::explore_space;
 
@@ -11,8 +11,8 @@ fn main() {
     }
     let size = args[1].parse::<u8>().unwrap();
 
-    let empty_board = empty::random(size).next().unwrap();
-    let board = filled::random(empty_board).next().unwrap();
+    let mut iter = holistic::random(size);
+    let board = iter.next().unwrap();
     
     println!("---------- BOARD ----------");
     color_print_board(&board);

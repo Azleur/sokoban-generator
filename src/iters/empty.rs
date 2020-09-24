@@ -5,7 +5,7 @@ use rand;
 use rand::Rng;
 // use rand::SeedableRng;
 
-use crate::base::{Board, Cell};
+use crate::base::{Board, Cell, BaseIter};
 use crate::iters::filter::Symmetries;
 use crate::tools::{fill, stats};
 
@@ -14,9 +14,7 @@ use crate::tools::{fill, stats};
 /// Guaranteed to find all valid combinations and finish immediately.
 /// Slower to find single examples than random(); deterministic and predictable order.
 pub fn serial(size: u8) -> Symmetries<SerialMaker> {
-    let serial_maker = SerialMaker::new(size);
-    let filter = Symmetries::new(serial_maker);
-    return filter;
+    Symmetries::<SerialMaker>::new_base(size)
 }
 
 /// Provides a RNG-based empty board maker.
@@ -24,9 +22,7 @@ pub fn serial(size: u8) -> Symmetries<SerialMaker> {
 /// Generally faster at finding single examples than serial().
 /// Slower to find the whole set and no confirmation when whole set found.
 pub fn random(size: u8) -> Symmetries<RngMaker> {
-    let random_maker = RngMaker::new(size);
-    let filter = Symmetries::new(random_maker);
-    return filter;
+    Symmetries::<RngMaker>::new_base(size)
 }
 
 /// Makes all  unique empty boards of the given size.
@@ -39,9 +35,9 @@ pub struct SerialMaker {
     combinations: u128,
 }
 
-impl SerialMaker {
+impl BaseIter for SerialMaker {
     /// Returns a new Maker for the given board size.
-    fn new(size: u8) -> SerialMaker {
+    fn new_base(size: u8) -> SerialMaker {
         return SerialMaker {
             seed: 0,
             size: size,
@@ -52,8 +48,8 @@ impl SerialMaker {
 
 impl Iterator for SerialMaker {
     type Item = Board;
-
-    fn next(&mut self) -> Option<Self::Item> {
+    
+    fn next(&mut self) -> Option<Board> {
         while self.seed < self.combinations {
             let board = make_board(self.size, self.seed);
             self.seed += 1;
@@ -138,8 +134,8 @@ pub struct RngMaker {
     combinations: u128,
 }
 
-impl RngMaker {
-    fn new(size: u8) -> RngMaker {
+impl BaseIter for RngMaker {
+    fn new_base(size: u8) -> RngMaker {
         return RngMaker {
             size: size,
             rng: rand::thread_rng(),

@@ -1,21 +1,17 @@
 use rand;
 use rand::seq::{SliceRandom, IteratorRandom};
 
-use crate::base::{Board, Cell};
+use crate::base::{Board, Cell, SecondaryIter};
 use crate::iters::filter::Symmetries;
 
 /// Provides an exhaustive board filler.
-pub fn serial(empty_board: Board) -> Symmetries<SerialFiller> {
-    let serial_filler = SerialFiller::new(empty_board);
-    let filter = Symmetries::new(serial_filler);
-    return filter;
+pub fn serial(board: Board) -> Symmetries<SerialFiller> {
+    Symmetries::<SerialFiller>::new_secondary(board)
 }
 
 /// Provides a PRNG board filler.
-pub fn random(empty_board: Board) -> Symmetries<RngFiller> {
-    let random_filler = RngFiller::new(empty_board);
-    let filter = Symmetries::new(random_filler);
-    return filter;
+pub fn random(board: Board) -> Symmetries<RngFiller> {
+    Symmetries::<RngFiller>::new_secondary(board)
 }
 
 pub struct SerialFiller {
@@ -25,8 +21,8 @@ pub struct SerialFiller {
     goal_idx: usize,
 }
 
-impl SerialFiller {
-    fn new(empty_board: Board) -> SerialFiller {
+impl SecondaryIter for SerialFiller {
+    fn new_secondary(empty_board: Board) -> SerialFiller {
         return SerialFiller {
             slots: get_slots(&empty_board),
             empty_board: empty_board,
@@ -74,8 +70,8 @@ pub struct RngFiller {
     rng: rand::rngs::ThreadRng,
 }
 
-impl RngFiller {
-    fn new(empty_board: Board) -> RngFiller {
+impl SecondaryIter for RngFiller {
+    fn new_secondary(empty_board: Board) -> RngFiller {
         return RngFiller {
             slots: get_slots(&empty_board),
             empty_board: empty_board,
