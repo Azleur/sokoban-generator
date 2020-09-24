@@ -11,7 +11,7 @@ use sokoban_generator::base::{Cell, find_cell};
 use sokoban_generator::iters::{empty, filled};
 use sokoban_generator::colorprint::{color_cell_symbol, color_print_board};
 
-use sokoban_generator::play::{Direction, move_piece};
+use sokoban_generator::play::{Direction, move_piece, explore_space};
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -43,6 +43,9 @@ fn main() {
         } else {
             print!("NO MOVE\r\n");
         }
+        print!("--------------------------\r\n");
+        let stats = explore_space(&board);
+        print!("Solvable: {}; best moves: {}.\r\n", stats.solvable, stats.num_moves);
         print!("--------------------------\r\n");
         color_print_board(&board);
 

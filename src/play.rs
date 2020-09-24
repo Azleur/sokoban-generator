@@ -1,5 +1,6 @@
 use crate::base::{Cell, Board, is_wall, is_goal, find_cell};
 
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Direction { Up, Right, Down, Left }
 
 /// Object returned by move_piece(), summarizing board status information.
@@ -62,45 +63,120 @@ pub fn move_piece(board: &mut Board, direction: Direction) -> Option<MoveStats> 
 }
 
 /// Summary of recursive exploration of the move space of a board.
+#[derive(Default, Debug)]
 pub struct ExploreStats {
     /// Can this board be solved?
-    solvable: bool,
+    pub solvable: bool,
+    pub num_moves: usize,
+    pub solution: Vec<Direction>,
 }
 
-// struct TreeNode {
-//     board: Board,
-//     parent: &TreeNode,
-// }
+/// Tree structure around a sequence of moves.
+struct TreeNode {
+    board: Board,
+    reached_by: Option<Direction>,
+    parent_idx: Option<usize>,
+}
 
-// /// Recursively explore all possible moves.
-// explore_space(board: &Board) -> ExploreStats {
-//     let size = board.len();
-//     if let None = 
-//     if let Some(init_pos) = find_cell(board, Cell::Piece) {
-//         let tree = 
+struct Tree {
+    nodes: Vec<TreeNode>,
+}
 
+impl Tree {
+    /// Create a new tree from a board.
+    fn new(board: Board) -> Tree {
+        Tree {
+            nodes: vec![TreeNode {
+                board: board, 
+                reached_by: None, 
+                parent_idx: None
+            }],
+        }
+    }
 
-//         let mut found = vec![init_pos];
-//         let mut idx = 0;
+    fn get(&self, idx: usize) -> &TreeNode {
+        &self.nodes[idx]
+    }
 
-//         while idx < found.len() {
+    fn push(&mut self, node: TreeNode) {
+        self.nodes.push(node)
+    }
 
-//             for dir in [Direction::Up, Direction::Down, Direction::Left, Direction::Right] {
-//                 let stats = move_piece(board, dir).unwrap();
-//                 if stats.victory {
-//                     return ExploreStats { solvable: true, };
-//                 } else if stats.cells_moved == 0 || found.contains(&stats.piece_pos) {
-//                     continue;
-//                 } else {
-//                     found.push(stats.piece_pos);
-//                     pending.push(stats.piece_pos);
-//                 }
-                
-//             }
-//         }
+    fn len(&self) -> usize {
+        self.nodes.len()
+    }
 
-//         return ExploreStats { solvable: false, };
-//     }
+    /// Check if self contains a given board in one of its nodes.
+    fn contains_board(&self, board: &Board) -> bool {
+        for node in &self.nodes {
+            if node.board == *board {
+                return true;
+            }
+        }
+        return false;
+    }
 
-//     return ExploreStats { solvable: false, };
-// }
+    /// Unwind the moves needed to obtain a given board position.
+    fn trace_moves(&self, idx: usize) -> Vec<Direction> {
+        let mut out: Vec<Direction> = Vec::new();
+        let mut node = self.get(idx);
+    
+        while let Some(dir) = &node.reached_by {
+            out.push(*dir);
+            match node.parent_idx {
+                Some(parent_idx) => node = self.get(parent_idx),
+                None => break,
+            }
+        }
+    
+        out.reverse();
+        return out;
+    }
+}
+
+/// Recursively explore all possible moves.
+pub fn explore_space(board: &Board) -> ExploreStats {
+    if let None = find_cell(board, Cell::Piece) {
+        return Default::default();
+    }
+
+    let mut tree = Tree::new(board.clone());
+    let mut idx = 0;
+
+    while idx < tree.len() {
+        for dir in &[Direction::Up, Direction::Down, Direction::Left, Direction::Right] {
+            let node = tree.get(idx);
+            if Some(*dir) == node.reached_by {
+                continue;
+            }
+
+            let mut candidate_board = node.board.clone();
+            let stats = move_piece(&mut candidate_board, *dir).unwrap();
+
+            if stats.cells_moved == 0 || tree.contains_board(&candidate_board) {
+                continue;
+            }
+
+            let new_node = TreeNode { 
+                board: candidate_board, 
+                reached_by: Some(*dir), 
+                parent_idx: Some(idx), 
+            };
+            tree.push(new_node);
+            let new_idx = &tree.len() - 1;
+
+            if stats.victory {
+                let solution = tree.trace_moves(new_idx);
+                return ExploreStats { 
+                    solvable: true, 
+                    num_moves: solution.len(),
+                    solution: solution,
+                };
+            }
+        }
+
+        idx += 1;
+    }
+
+    return Default::default();
+}
