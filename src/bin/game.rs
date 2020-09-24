@@ -1,10 +1,15 @@
 use std::{process, env};
+use std::io::stdout;
 
+use crossterm::ExecutableCommand;
 use crossterm::event::{read, Event, KeyCode};
-use crossterm::terminal::{enable_raw_mode, disable_raw_mode};
+use crossterm::terminal::{Clear, ClearType, enable_raw_mode, disable_raw_mode};
+use crossterm::cursor::MoveTo;
+use crossterm::style::Colorize;
 
-use sokoban_generator::base::{Cell, print_board, find_cell};
+use sokoban_generator::base::{Cell, find_cell};
 use sokoban_generator::iters::{empty, filled};
+use sokoban_generator::colorprint::{color_cell_symbol, color_print_board};
 
 use sokoban_generator::play::{Direction, move_piece};
 
@@ -15,6 +20,8 @@ fn main() {
     }
     let size = args[1].parse::<u8>().unwrap();
 
+    let mut stdout = stdout();
+
     let empty_board = empty::random(size).next().unwrap();
     let mut board = filled::random(empty_board).next().unwrap();
     let mut round = 0;
@@ -22,11 +29,14 @@ fn main() {
     let mut new_pos = old_pos;
 
     enable_raw_mode().unwrap();
+    stdout.execute(Clear(ClearType::All)).unwrap();
 
     loop {
-        print!("---------- [{}] ----------\r\n", round);
-        print!("Arrows to move; q to quit.\r\n");
-        print!("#: box; @: goal.\r\n");
+        stdout.execute(MoveTo(0, 0)).unwrap();
+        let round_display = format!("{:02}", round).yellow();
+        print!("---------- [{}] ----------\r\n", round_display);
+        print!("{} to move; {} to quit.\r\n", "Arrows".yellow(), "q".yellow());
+        print!("{}: box; {}: goal.\r\n", color_cell_symbol(&Cell::Piece), color_cell_symbol(&Cell::Goal));
         print!("--------------------------\r\n");
         if old_pos != new_pos {
             print!("({}, {}) -> ({}, {})\r\n", old_pos.0, old_pos.1, new_pos.0, new_pos.1);
@@ -34,7 +44,7 @@ fn main() {
             print!("NO MOVE\r\n");
         }
         print!("--------------------------\r\n");
-        print_board(&board);
+        color_print_board(&board);
 
         round += 1;
         old_pos = new_pos;

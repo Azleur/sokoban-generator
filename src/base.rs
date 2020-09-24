@@ -63,5 +63,3 @@ pub fn find_cell(board: &Board, cell: Cell) -> Option<(u8, u8)> {
 
     return None;
 }
-
-// pub trait Iter = Iterator<Item = Board>;

@@ -13,6 +13,8 @@ pub struct MoveStats {
 }
 
 /// Try moving the piece in the given direction, and return stats for the board status after moving.
+///
+/// Returns None if there is no piece to move; Some(stats) otherwise.
 pub fn move_piece(board: &mut Board, direction: Direction) -> Option<MoveStats> {
     let size = board.len() as u8;
 
@@ -58,3 +60,47 @@ pub fn move_piece(board: &mut Board, direction: Direction) -> Option<MoveStats> 
     
     return None;
 }
+
+/// Summary of recursive exploration of the move space of a board.
+pub struct ExploreStats {
+    /// Can this board be solved?
+    solvable: bool,
+}
+
+// struct TreeNode {
+//     board: Board,
+//     parent: &TreeNode,
+// }
+
+// /// Recursively explore all possible moves.
+// explore_space(board: &Board) -> ExploreStats {
+//     let size = board.len();
+//     if let None = 
+//     if let Some(init_pos) = find_cell(board, Cell::Piece) {
+//         let tree = 
+
+
+//         let mut found = vec![init_pos];
+//         let mut idx = 0;
+
+//         while idx < found.len() {
+
+//             for dir in [Direction::Up, Direction::Down, Direction::Left, Direction::Right] {
+//                 let stats = move_piece(board, dir).unwrap();
+//                 if stats.victory {
+//                     return ExploreStats { solvable: true, };
+//                 } else if stats.cells_moved == 0 || found.contains(&stats.piece_pos) {
+//                     continue;
+//                 } else {
+//                     found.push(stats.piece_pos);
+//                     pending.push(stats.piece_pos);
+//                 }
+                
+//             }
+//         }
+
+//         return ExploreStats { solvable: false, };
+//     }
+
+//     return ExploreStats { solvable: false, };
+// }
